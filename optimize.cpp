@@ -1,65 +1,88 @@
 #include <iostream>
 #include <vector>
 
-double calculateScoreM2(double payload, double emptyWeight, double wingArea, double CoL) {
-    double requiredLift = emptyWeight + payload;
-    double availableLift = CoL * wingArea;
-    if(requiredLift > availableLift) return 0;
-    // TODO find out max thrust/pitch speed and limit cruise
-    
-    double requiredCruiseSpeed = requiredLift / /* (fluid dynamic pressure q) */ wingArea;
-    double maxThrust = 100;
-    // drag scales with square of speed and area times CoL?
-    double drag = (requiredCruiseSpeed * requiredCruiseSpeed) * wingArea * CoL;
-    if(drag > maxThrust) return 0;
+struct Plane {
+    double payload, emptyWeight, wingArea, CoL;
+    virtual double minPayload() = 0;
+    virtual double maxPayload() = 0;
+    virtual double minEmptyWeight() = 0;
+    virtual double maxEmptyWeight() = 0;
+    virtual double minWingArea() = 0;
+    virtual double maxWingArea() = 0;
+    virtual double minCoL() = 0;
+    virtual double maxCoL() = 0;
+    virtual double calculateScore() = 0;
+private:
+    virtual double maxCruise() = 0;
+    virtual double maxThrust() = 0;
+};
 
-    double score = payload * requiredCruiseSpeed;
-    return score;
-}
+struct M2Plane: public Plane {
+    double minPayload() override {
+        return emptyWeight * 0.3;
+    }
+    double maxPayload() override {
+        return 50.0 - emptyWeight;
+    }
+    double minEmptyWeight() override {
+        return 10.0;
+    }
+    double maxEmptyWeight() override {
+        return 40.0;
+    }
+    double minWingArea() override {
+        return 10;
+    }
+    double maxWingArea() override {
+        return 961;
+    }
+    double minCoL() override {
+        return 0.5;
+    }
+    double maxCoL() override {
+        return 2.0;
+    }
+    double maxCruise() override {
+        return 50;
+    }
+    double maxThrust() override {
+        return 100;
+    }
+    double calculateScore() override {
+        double requiredLift = emptyWeight + payload;
+        double availableLift = CoL * wingArea;
+        if(requiredLift > availableLift) return 0;
 
-//calculate bounds/constraints on input variables
-double minEmptyWeight() {
-    return 10.0;
-}
-double maxEmptyWeight() {
-    return 40.0;
-}
-double minPayload() {
-    return 1.0;
-}
-double maxPayload(double emptyWeight) {
-    return 50.0 - emptyWeight;
-}
-double minWingArea() {
-    return 1;
-}
-double maxWingArea() {
-    return 961;
-}
-double minCoL() {
-    return 0.5;
-}
-double maxCol() {
-    return 2.0;
-}
+        double requiredCruiseSpeed = requiredLift / /* (fluid dynamic pressure q) */ wingArea;
+        if(requiredCruiseSpeed > maxCruise()) return 0;
+
+        // drag scales with square of speed and area times CoL?
+        double drag = (requiredCruiseSpeed * requiredCruiseSpeed) * wingArea * CoL;
+        if(drag > maxThrust()) return 0;
+
+        double score = payload * requiredCruiseSpeed;
+        return score;
+    }
+};
 
 int main() {
     double stride = 0.1;
     double maxScore = 0;
+    M2Plane plane;
 
     std::cout << "weight\tpayload\tCoL\tarea\tscore\n";
-    for(double emptyWeight = minEmptyWeight(); emptyWeight < maxEmptyWeight(); emptyWeight+=stride) {
-        for (double payload = minPayload(); payload < maxPayload(emptyWeight); payload+=stride) {
-            for (double CoL = minCoL(); CoL < maxCol(); CoL+=stride) {
-                for (double wingArea = minWingArea(); wingArea < maxWingArea(); wingArea+=stride) {
-                    double score = calculateScoreM2(payload, emptyWeight, wingArea, CoL);
+    for(plane.emptyWeight = plane.minEmptyWeight(); plane.emptyWeight < plane.maxEmptyWeight(); plane.emptyWeight+=stride) {
+        for (plane.payload = plane.minPayload(); plane.payload < plane.maxPayload(); plane.payload+=stride) {
+            for (plane.CoL = plane.minCoL(); plane.CoL < plane.maxCoL(); plane.CoL+=stride) {
+                for (plane.wingArea = plane.minWingArea(); plane.wingArea < plane.maxWingArea(); plane.wingArea+=stride) {
+                    double score = plane.calculateScore();
                     if (score > maxScore) {
                         maxScore = score;
-                        std::cout << emptyWeight << "\t"
-                            << payload << "\t"
-                            << CoL << "\t"
-                            << wingArea << "\t" 
-                            << score << "\n";
+                        std::cout << "empty weight:" << plane.emptyWeight << "\t"
+                            << "payload: " << plane.payload << "\t"
+                            << "CoL: " << plane.CoL << "\t"
+                            << "wing area: " << plane.wingArea << "\t" 
+                            << "score: " << score << "\n";
                     }
                 }
             }
